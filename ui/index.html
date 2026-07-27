@@ -3,8 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title></title>
-    <link href="css/style.css" rel="stylesheet" />
+    <title>Hamster Train</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static',
+  filename='style.css') }}"
+    />
+    <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+    <!-- <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" /> -->
   </head>
   <body>
     Hello
