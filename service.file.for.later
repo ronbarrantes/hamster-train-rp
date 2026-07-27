@@ -1,0 +1,17 @@
+## MODIFY ACCORDINGLY
+ [Unit]
+  Description=Hamster Train Flask App
+  After=network.target
+
+  [Service]
+  User=pi
+  WorkingDirectory=/home/pi/workspace/hamster-train-rp
+  ExecStart=/home/pi/workspace/hamster-train-rp/.venv/bin/python app.py
+  Restart=always
+
+  [Install]
+  WantedBy=multi-user.target
+
+  The important part is:
+
+  ExecStart=/home/pi/workspace/hamster-train-rp/.venv/bin/python app.py
