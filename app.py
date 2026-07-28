@@ -1,51 +1,210 @@
+import argparse
+import ipaddress
+import json
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify
+from queue import Empty, Queue
+from threading import Lock
+
+from flask import Flask, Response, jsonify, render_template, stream_with_context
 
 
-class ActLED:
-    def __init__(self):
-        self.trigger = Path("/sys/class/leds/ACT/trigger")
-        self.brightness = Path("/sys/class/leds/ACT/brightness")
-        self.trigger.write_text("none")
-
-    def on(self):
-        self.brightness.write_text("1")
-
-    def off(self):
-        self.brightness.write_text("0")
-
-    def state(self):
-        return self.brightness.read_text().strip() == "1"
-
-    def restore(self):
-        self.trigger.write_text("actpwr")
+# Files used by Linux to control the Raspberry Pi ACT LED.
+TRIGGER_PATH = Path("/sys/class/leds/ACT/trigger")
+BRIGHTNESS_PATH = Path("/sys/class/leds/ACT/brightness")
 
 
-app = Flask(__name__, template_folder="ui")
-led = ActLED()
+class ActLedBackend:
+    def __init__(self, trigger_path=TRIGGER_PATH, brightness_path=BRIGHTNESS_PATH):
+        self.trigger_path = trigger_path
+        self.brightness_path = brightness_path
+
+    def startup(self):
+        self.trigger_path.write_text("none")
+        self.turn_off()
+
+    def turn_on(self):
+        # Writing 1 turns this Pi's ACT LED on. It reads back as 255.
+        self.brightness_path.write_text("1")
+
+    def turn_off(self):
+        # Writing and reading 0 means off.
+        self.brightness_path.write_text("0")
+
+    def is_on(self):
+        return self.brightness_path.read_text().strip() != "0"
 
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+# Only one thread may change shared LED state at a time.
+led_lock = Lock()
+
+# Each connected browser gets a queue. Think of each queue as a mailbox.
+listeners = set()
+
+# Revision is a counter. Bigger numbers mean newer state.
+revision = 0
 
 
-@app.route("/led", methods=["GET", "POST"])
-def led_route():
-    if request.method == "GET":
-        return jsonify({"on": led.state()})
+def turn_led_on(led_backend):
+    led_backend.turn_on()
 
-    data = request.get_json(silent=True) or {}
 
-    if data.get("on"):
-        led.on()
-    else:
-        led.off()
+def turn_led_off(led_backend):
+    led_backend.turn_off()
 
-    return jsonify({"on": led.state()})
+
+def is_led_on(led_backend):
+    return led_backend.is_on()
+
+
+def make_state_message(led_backend):
+    return {
+        "on": is_led_on(led_backend),
+        "revision": revision,
+    }
+
+
+def get_state(led_backend):
+    with led_lock:
+        return make_state_message(led_backend)
+
+
+def send_state_to_everyone(state):
+    for listener in listeners:
+        # Only newest message matters, so each mailbox holds one message.
+        if listener.full():
+            try:
+                listener.get_nowait()
+            except Empty:
+                pass
+        listener.put_nowait(state)
+
+
+def toggle_led(led_backend):
+    global revision
+
+    with led_lock:
+        if is_led_on(led_backend):
+            turn_led_off(led_backend)
+        else:
+            turn_led_on(led_backend)
+
+        revision += 1
+        state = make_state_message(led_backend)
+        send_state_to_everyone(state)
+        return state
+
+
+def add_listener(led_backend):
+    listener = Queue(maxsize=1)
+
+    with led_lock:
+        listeners.add(listener)
+        listener.put_nowait(make_state_message(led_backend))
+
+    return listener
+
+
+def remove_listener(listener):
+    with led_lock:
+        listeners.discard(listener)
+
+
+def create_app(led_backend=None):
+    app = Flask(__name__, template_folder="ui")
+    if led_backend is None:
+        led_backend = ActLedBackend()
+    startup_lock = Lock()
+    startup_complete = False
+
+    @app.before_request
+    def start_led_once():
+        nonlocal startup_complete
+
+        if startup_complete:
+            return
+
+        with startup_lock:
+            if startup_complete:
+                return
+
+            try:
+                # Take control of the ACT LED. Off means the app is ready.
+                led_backend.startup()
+            except OSError:
+                app.logger.exception("Could not initialize the ACT LED")
+            startup_complete = True
+
+    @app.route("/")
+    def home():
+        return render_template("index.html")
+
+    @app.get("/led")
+    def get_led():
+        return jsonify(get_state(led_backend))
+
+    @app.post("/led/toggle")
+    def toggle_led_route():
+        return jsonify(toggle_led(led_backend))
+
+    @app.get("/events")
+    def events():
+        listener = add_listener(led_backend)
+
+        def send_events():
+            try:
+                while True:
+                    try:
+                        state = listener.get(timeout=15)
+                        yield f"data: {json.dumps(state)}\n\n"
+                    except Empty:
+                        # SSE comments keep quiet connections alive.
+                        yield ": heartbeat\n\n"
+            finally:
+                remove_listener(listener)
+
+        return Response(
+            stream_with_context(send_events()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    return app
+
+
+app = create_app()
+
+
+def is_loopback_host(host):
+    if host == "localhost":
+        return True
+
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="show detailed errors while developing",
+    )
+    parser.add_argument(
+        "--host",
+        help="address to bind (default: 0.0.0.0, or 127.0.0.1 with --debug)",
+    )
+    args = parser.parse_args()
+    host = args.host or ("127.0.0.1" if args.debug else "0.0.0.0")
 
+    if args.debug and not is_loopback_host(host):
+        parser.error("--debug can only be used with a loopback --host")
 
-
+    app.run(
+        host=host,
+        port=5000,
+        debug=args.debug,
+        use_reloader=False,
+        threaded=True,
+    )
