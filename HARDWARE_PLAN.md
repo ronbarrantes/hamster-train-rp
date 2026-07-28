@@ -15,12 +15,19 @@ The current system runs on a Raspberry Pi Zero W:
 - The LED starts off to indicate that the application is ready.
 - Two browsers can control the LED and remain synchronized.
 
-The systemd service starts the application with:
+Set `User` to the deployment account. The systemd service uses `%h`, that
+account's home directory, so the same layout also works when the account is
+`root`:
 
-```text
-/home/ocean/application/hamster-train-rp/.venv/bin/python \
-    /home/ocean/application/hamster-train-rp/app.py
+```ini
+User=<deployment-account>
+WorkingDirectory=%h/application/hamster-train-rp
+ExecStart=%h/application/hamster-train-rp/.venv/bin/python \
+    %h/application/hamster-train-rp/app.py
 ```
+
+Normal startup listens on `0.0.0.0` so trusted home-network and WireGuard
+devices can connect without extra service arguments.
 
 Debug mode is off by default. Development mode can be enabled with:
 
@@ -412,6 +419,39 @@ All grounds connected
 
 Use separate power wires or branches even when one battery powers everything.
 This helps keep motor and servo noise away from the Pi.
+
+Treat the A1259's ports as one shared 5V/4.8A source, not as independent
+supplies. A preliminary simultaneous-peak budget for selecting parts is:
+
+| Load | Startup/stall allocation |
+|---|---:|
+| Pi Zero W and camera | 1.2A startup/peak reserve |
+| One motor through the TB6612FNG | 1.0A stall maximum |
+| Servo or servos combined | 1.2A stall maximum |
+| Speaker amplifier | 0.8A peak at maximum intended volume |
+| **Combined peak** | **4.2A** |
+
+The 4.2A total leaves 0.6A below the bank's shared 4.8A rating for conversion
+and wiring margin. These are selection ceilings, not assumed device currents:
+replace them with measured startup, motor-stall, combined servo-stall, and
+maximum-volume amplifier input currents. If any load exceeds its allocation,
+recalculate the total rather than borrowing the margin.
+
+At a 5V motor supply, design for no more than about 1A sustained on one
+TB6612FNG channel. Its higher peak rating is a brief pulse rating, not
+permission for a motor that draws more than 1A while stalled. Select a motor
+whose measured stall current fits both that operating limit and the power
+budget.
+
+Separate wires reduce shared wiring impedance and noise, but separate power-bank
+ports do not prove that the branches are safe. With the final cables and all
+loads attached, measure voltage at the Pi, motor driver, servo supply, and
+amplifier during Pi startup and a brief, controlled simultaneous motor/servo
+stall test plus loud audio. Repeat for every intended port assignment and at
+low battery charge. Do not accept the layout if the combined peak exceeds
+4.8A, the Pi rail falls below 4.75V, or any other rail falls outside its
+device's specified input range. Also confirm that the bank neither shuts down
+nor repeatedly reconnects.
 
 Add a fuse and main switch to the peripheral power branch. Final fuse size
 depends on measured current.
