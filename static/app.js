@@ -1,11 +1,11 @@
 const ledButton = document.querySelector("#led-button");
 const statusText = document.querySelector("#status");
+let latestRevision = -1;
 
 function updateDisplay(isOn) {
   ledButton.classList.toggle("on", isOn);
   ledButton.classList.toggle("off", !isOn);
   ledButton.textContent = isOn ? "LED ON" : "LED OFF";
-  ledButton.dataset.on = String(isOn);
   ledButton.disabled = false;
 
   statusText.textContent = isOn
@@ -13,37 +13,22 @@ function updateDisplay(isOn) {
     : "The ACT LED is off.";
 }
 
-async function getLedState() {
-  try {
-    const response = await fetch("/led");
-
-    if (!response.ok) {
-      throw new Error(`Server returned ${response.status}`);
-    }
-
-    const data = await response.json();
-    updateDisplay(data.on);
-  } catch (error) {
-    ledButton.textContent = "Unavailable";
-    statusText.textContent = error.message;
+function receiveState(state) {
+  if (state.revision < latestRevision) {
+    return;
   }
+
+  latestRevision = state.revision;
+  updateDisplay(state.on);
 }
 
 async function toggleLed() {
-  const isCurrentlyOn = ledButton.dataset.on === "true";
-
   ledButton.disabled = true;
   statusText.textContent = "Updating...";
 
   try {
-    const response = await fetch("/led", {
+    const response = await fetch("/led/toggle", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        on: !isCurrentlyOn,
-      }),
     });
 
     if (!response.ok) {
@@ -51,7 +36,7 @@ async function toggleLed() {
     }
 
     const data = await response.json();
-    updateDisplay(data.on);
+    receiveState(data);
   } catch (error) {
     ledButton.disabled = false;
     statusText.textContent = error.message;
@@ -60,4 +45,13 @@ async function toggleLed() {
 
 ledButton.addEventListener("click", toggleLed);
 
-getLedState();
+const events = new EventSource("/events");
+
+events.onmessage = (event) => {
+  receiveState(JSON.parse(event.data));
+};
+
+events.onerror = () => {
+  latestRevision = -1;
+  statusText.textContent = "Connection lost. Reconnecting...";
+};
