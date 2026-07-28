@@ -4,15 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Hamster Train</title>
+
     <link
       rel="stylesheet"
-      href="{{ url_for('static',
-  filename='style.css') }}"
+      href="{{ url_for('static', filename='style.css') }}"
     />
-    <script defer src="{{ url_for('static', filename='app.js') }}"></script>
-    <!-- <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" /> -->
+
+    <script
+      defer
+      src="{{ url_for('static', filename='app.js') }}"
+    ></script>
   </head>
+
   <body>
-    Hello
+    <main>
+      <h1>Hamster Train</h1>
+      <button id="led-button" disabled>Loading...</button>
+      <p id="status"></p>
+    </main>
   </body>
 </html>
