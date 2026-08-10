@@ -163,12 +163,6 @@ main {
   transition: transform 100ms ease, border-color 100ms ease, background 100ms ease;
 }
 
-.direction-button.primary {
-  border-color: #6d8d43;
-  background: var(--green-dark);
-  color: var(--green);
-}
-
 .direction-button:hover:not(:disabled),
 .device-button:hover:not(:disabled) {
   border-color: var(--green);

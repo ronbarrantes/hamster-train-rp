@@ -98,3 +98,14 @@ def test_dashboard_and_static_files_are_served(monkeypatch):
         assert "Forward" in page.text
         assert script.status_code == 200
         assert 'new EventSource("/events")' in script.text
+
+
+def test_direction_buttons_start_with_same_neutral_style(monkeypatch):
+    monkeypatch.setenv(app_module.MOCK_MODE_ENVIRONMENT_KEY, "1")
+
+    with TestClient(app_module.app) as client:
+        page = client.get("/")
+        stylesheet = client.get("/static/style.css")
+
+        assert 'id="forward-button" class="direction-button"' in page.text
+        assert ".direction-button.primary" not in stylesheet.text
