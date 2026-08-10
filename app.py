@@ -14,6 +14,7 @@ from state import TrainState
 
 MOCK_MODE_ENVIRONMENT_KEY = "HAMSTER_TRAIN_MOCK"
 PROJECT_DIRECTORY = Path(__file__).parent
+GRACEFUL_SHUTDOWN_TIMEOUT = 1
 
 
 def mock_mode_enabled():
@@ -74,8 +75,7 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    args = parse_args()
+def run_server(args):
     if args.mock:
         os.environ[MOCK_MODE_ENVIRONMENT_KEY] = "1"
     else:
@@ -86,4 +86,9 @@ if __name__ == "__main__":
         host=args.host,
         port=args.port,
         reload=args.reload,
+        timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_TIMEOUT,
     )
+
+
+if __name__ == "__main__":
+    run_server(parse_args())

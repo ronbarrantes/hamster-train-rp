@@ -28,6 +28,9 @@ python app.py --mock --reload
 
 Open <http://127.0.0.1:8000>.
 
+Press `Ctrl+C` once to stop. Long-lived SSE connections get one second to close,
+then Uvicorn cancels them and runs hardware cleanup.
+
 The dashboard and terminal show `Simulation mode`. Mock mode exercises REST,
 SSE, WebSocket ownership, disconnect cleanup, and UI behavior without moving
 physical hardware.

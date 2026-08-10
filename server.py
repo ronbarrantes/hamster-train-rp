@@ -17,6 +17,25 @@ router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent / "ui")
 
 
+class EventStreamResponse(StreamingResponse):
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        except asyncio.CancelledError:
+            # Uvicorn cancels long-lived SSE streams after graceful timeout.
+            try:
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": b"",
+                        "more_body": False,
+                    }
+                )
+            except (OSError, RuntimeError):
+                pass
+            return
+
+
 @router.get("/")
 async def home(request: Request):
     return templates.TemplateResponse(request, "index.html")
@@ -56,7 +75,7 @@ async def events(request: Request):
         finally:
             await train.remove_listener(listener)
 
-    return StreamingResponse(
+    return EventStreamResponse(
         send_events(),
         media_type="text/event-stream",
         headers={
