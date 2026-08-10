@@ -1,4 +1,6 @@
-flask
 uvicorn
+websockets
 fastapi
+jinja2
 gpiozero
+pigpio

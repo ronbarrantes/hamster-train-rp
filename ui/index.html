@@ -4,22 +4,93 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Hamster Train</title>
-
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='style.css') }}"
-    />
-
-    <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}" />
+    <script defer src="{{ url_for('static', path='app.js') }}"></script>
   </head>
 
   <body>
     <header>
-      <h1>Hamster Train</h1>
+      <div>
+        <p class="eyebrow">Control station</p>
+        <h1>Hamster Train</h1>
+      </div>
+      <div class="connection-panel" aria-live="polite">
+        <span id="mode-badge" class="badge" hidden>Simulation mode</span>
+        <span id="connection-dot" class="connection-dot"></span>
+        <span id="connection-status">Connecting...</span>
+      </div>
     </header>
+
     <main>
-      <button id="led-button" disabled>Loading...</button>
-      <p id="status"></p>
+      <section class="controller motor-controller" aria-labelledby="motor-title">
+        <div class="controller-heading">
+          <div>
+            <p class="controller-number">01</p>
+            <h2 id="motor-title">Motor</h2>
+          </div>
+          <p id="motor-status" class="device-status">Stopped</p>
+        </div>
+
+        <div class="direction-controls">
+          <button id="reverse-button" class="direction-button" type="button" disabled>
+            <span aria-hidden="true">←</span>
+            Reverse
+          </button>
+          <button id="forward-button" class="direction-button primary" type="button" disabled>
+            Forward
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+
+        <p class="hint">Hold direction button to move. Release to stop.</p>
+
+        <label class="speed-control" for="speed-slider">
+          <span>Speed</span>
+          <output id="speed-output" for="speed-slider">50%</output>
+        </label>
+        <input
+          id="speed-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+          value="50"
+          disabled
+        />
+        <p id="motor-message" class="message" aria-live="polite"></p>
+      </section>
+
+      <section class="controller" aria-labelledby="door-title">
+        <div class="controller-heading">
+          <div>
+            <p class="controller-number">02</p>
+            <h2 id="door-title">Door</h2>
+          </div>
+          <p id="door-status" class="device-status">Unknown</p>
+        </div>
+        <button id="door-button" class="device-button door-button" type="button" disabled>
+          Close door
+        </button>
+        <p class="hint">Servo moves between configured open and closed positions.</p>
+      </section>
+
+      <section class="controller" aria-labelledby="led-title">
+        <div class="controller-heading">
+          <div>
+            <p class="controller-number">03</p>
+            <h2 id="led-title">LED</h2>
+          </div>
+          <p id="led-status" class="device-status">Off</p>
+        </div>
+        <button id="led-button" class="device-button led-button" type="button" disabled>
+          Turn LED on
+        </button>
+        <p class="hint">External LED connected to GPIO 4.</p>
+      </section>
     </main>
+
+    <footer>
+      <p id="revision-status">Waiting for state...</p>
+    </footer>
   </body>
 </html>

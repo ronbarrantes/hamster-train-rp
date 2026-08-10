@@ -4,9 +4,53 @@ This document summarizes the decisions and ideas discussed while building the
 Hamster Train project. It is written for a software developer who is new to
 electronics.
 
-## Current project
+## Current implementation
 
-The current system runs on a Raspberry Pi Zero W:
+The Raspberry Pi Zero W runs a FastAPI application as its own network server.
+The application has three external GPIO controllers:
+
+- TB6612FNG motor control through a WebSocket.
+- Door servo with open and closed positions through REST.
+- External LED through REST.
+- Server-Sent Events (SSE) broadcast complete state to every dashboard.
+
+The ACT LED is no longer controlled by this project.
+
+Current BCM pin assignments:
+
+| Device | GPIO |
+|---|---:|
+| Motor PWM | 17 |
+| Motor AIN1 | 27 |
+| Motor AIN2 | 22 |
+| Motor standby | 23 |
+| External LED | 4 |
+| Door servo signal | 26 |
+
+Real mode uses GPIO Zero with `PiGPIOFactory` and requires `pigpiod`. Mock mode
+uses GPIO Zero's `MockFactory` so the complete server and dashboard can run on
+macOS:
+
+```bash
+python app.py --mock --reload
+```
+
+Real GPIO is the default:
+
+```bash
+python app.py
+```
+
+Only one Uvicorn worker should run. Device state, SSE subscribers, and motor
+ownership are stored in that process. Motor ownership is released by Stop,
+WebSocket disconnect, heartbeat timeout, or application shutdown.
+
+## Historical ACT LED prototype
+
+The following section documents the earlier Flask/ACT LED prototype retained in
+`app.py.bak`. It is not the active application.
+
+The prototype ran on a Raspberry Pi Zero W:
 
 - Flask serves the dashboard on port `5000`.
 - The browser sends commands with normal HTTP requests.
