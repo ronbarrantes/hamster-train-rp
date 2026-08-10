@@ -1,7 +1,8 @@
 # Hamster Train
 
 ## Requirements
-install the requirements 
+
+install the requirements
 
 ```bash
 python -m pip install -r requirements.txt
@@ -13,11 +14,8 @@ python -m pip install -r requirements.txt
 source .venv/bin/activate
 ```
 
-## to install package in this environment 
+## to install package in this environment
 
 ```bash
 python -m pip install <the_package>
 ```
-
-
-

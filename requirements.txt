@@ -1,2 +1,4 @@
 flask
+uvicorn
+fastapi
 gpiozero
