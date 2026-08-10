@@ -4,16 +4,16 @@ import json
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Lock
-from gpiozero import LED
 
 from flask import Flask, Response, jsonify, render_template, stream_with_context
+
 
 # Files used by Linux to control the Raspberry Pi ACT LED.
 TRIGGER_PATH = Path("/sys/class/leds/ACT/trigger")
 BRIGHTNESS_PATH = Path("/sys/class/leds/ACT/brightness")
 
 
-class LedBackend:
+class ActLedBackend:
     def __init__(self, trigger_path=TRIGGER_PATH, brightness_path=BRIGHTNESS_PATH):
         self.trigger_path = trigger_path
         self.brightness_path = brightness_path
@@ -112,7 +112,7 @@ def remove_listener(listener):
 def create_app(led_backend=None):
     app = Flask(__name__, template_folder="ui")
     if led_backend is None:
-        led_backend = LedBackend()
+        led_backend = ActLedBackend()
     startup_lock = Lock()
     startup_complete = False
 
